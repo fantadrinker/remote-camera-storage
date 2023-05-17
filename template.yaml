@@ -1,0 +1,87 @@
+# This is the SAM template that represents the architecture of your serverless application
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-template-basics.html
+
+# The AWSTemplateFormatVersion identifies the capabilities of the template
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  remote-camera-app
+
+# Transform section specifies one or more macros that AWS CloudFormation uses to process your template
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/transform-section-structure.html
+Transform:
+- AWS::Serverless-2016-10-31
+
+# Resources declares the AWS resources that you want to include in the stack
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resources-section-structure.html
+Resources:
+
+  # custom resources
+  MyApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Auth:
+        Authorizers:
+          Auth0APIAuthorizer:
+            JwtConfiguration:
+              issuer: "https://dev-55m1hzkqt35ta6tx.us.auth0.com/"
+              audience: 
+                - "https://ebkvpwvkf1.execute-api.us-east-1.amazonaws.com/"
+            IdentitySource: "$request.header.Authorization"
+        DefaultAuthorizer: Auth0APIAuthorizer
+      # CORS configuration - this is open for development only and should be restricted in prod.
+      # See https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-httpapi-httpapicorsconfiguration.html   
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - "*"   
+        AllowOrigins: 
+          - "*"
+  # this is a lambda function that retrieves s3 upload url
+  getAccessUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/get-s3-access-url.getAccessUrl
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref MyS3Bucket
+      Environment:
+        Variables:
+          # Make table name accessible as environment variable from function code during execution
+          RECORDINGS_BUCKET: !Ref MyS3Bucket
+      Events:
+        UploadAssetAPI:
+          Type: HttpApi
+          Properties:
+            Path: /access-url
+            Method: GET
+            ApiId: !Ref MyApi
+
+  # S3 Bucket
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - "*"
+            AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - HEAD
+
+Outputs:
+  WebEndpoint:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/access-url"
