@@ -8,15 +8,14 @@ const s3 = new AWS.S3()
 
 export const getAccessUrl = async (event) => {
   const randomID = parseInt(Math.random() * 10000000)
-  // for now just upload jpg file
-  const Key = `${randomID}.jpg`
+  const Key = `${randomID}.webm`
 
   // Get signed URL from S3
   const s3Params = {
     Bucket: process.env.RECORDINGS_BUCKET,
     Key,
     Expires: URL_EXPIRATION_SECONDS,
-    ContentType: 'image/jpeg',
+    ContentType: 'video/webm',
 
     // This ACL makes the uploaded object publicly readable. You must also uncomment
     // the extra permission for the Lambda function in the SAM template.
