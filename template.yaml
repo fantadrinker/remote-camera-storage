@@ -38,9 +38,12 @@ Resources:
           - DELETE
           - OPTIONS
         AllowHeaders:
-          - "*"   
+          - "Content-Type"
+          - "Authorization"
         AllowOrigins: 
-          - "*"
+          - "http://localhost:5173"
+          - "https://fantadrinker.github.io"
+
   # this is a lambda function that retrieves s3 upload url
   getAccessUrlFunction:
     Type: AWS::Serverless::Function
@@ -73,7 +76,8 @@ Resources:
       CorsConfiguration:
         CorsRules:
           - AllowedOrigins:
-              - "*"
+              - "http://localhost:5173"
+              - "https://fantadrinker.github.io"
             AllowedHeaders:
               - "*"
             AllowedMethods:

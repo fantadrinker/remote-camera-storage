@@ -7,8 +7,9 @@ AWS.config.update({ region: process.env.AWS_REGION })
 const s3 = new AWS.S3()
 
 export const getAccessUrl = async (event) => {
+  const sub = event.queryStringParameters.sub
   const randomID = parseInt(Math.random() * 10000000)
-  const Key = `${randomID}.webm`
+  const Key = `${sub}/${randomID}.webm`
 
   // Get signed URL from S3
   const s3Params = {
@@ -16,11 +17,6 @@ export const getAccessUrl = async (event) => {
     Key,
     Expires: URL_EXPIRATION_SECONDS,
     ContentType: 'video/webm',
-
-    // This ACL makes the uploaded object publicly readable. You must also uncomment
-    // the extra permission for the Lambda function in the SAM template.
-
-    // ACL: 'public-read'
   }
 
   console.log('Params: ', s3Params)
@@ -30,4 +26,17 @@ export const getAccessUrl = async (event) => {
     uploadURL: uploadURL,
     Key
   })
+}
+
+export const getAllStoredVideos = async (event) => {
+  const sub = event.queryStringParameters.sub
+    const params = {
+        Bucket: process.env.RECORDINGS_BUCKET,
+        Prefix: `${sub}/`
+    }
+    
+    const data = await s3.listObjectsV2(params).promise()
+    console.log('data: ', data)
+    
+    return JSON.stringify(data.Contents)
 }
