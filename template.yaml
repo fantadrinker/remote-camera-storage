@@ -48,7 +48,7 @@ Resources:
   getAccessUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/get-s3-access-url.getAccessUrl
+      Handler: src/handlers/get-s3-upload-url.putObjectUrl
       Runtime: nodejs18.x
       Architectures:
         - x86_64
@@ -66,6 +66,55 @@ Resources:
           Type: HttpApi
           Properties:
             Path: /access-url
+            Method: GET
+            ApiId: !Ref MyApi
+
+  # this is a lambda function that retrieves s3 upload url
+  getS3ObjectsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/get-s3-objects.getStoredVideos
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref MyS3Bucket
+      Environment:
+        Variables:
+          # Make table name accessible as environment variable from function code during execution
+          RECORDINGS_BUCKET: !Ref MyS3Bucket
+      Events:
+        UploadAssetAPI:
+          Type: HttpApi
+          Properties:
+            Path: /recordings
+            Method: GET
+            ApiId: !Ref MyApi
+  
+  getS3DownloadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/get-s3-download-url.getObjectUrl
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref MyS3Bucket
+      Environment:
+        Variables:
+          # Make table name accessible as environment variable from function code during execution
+          RECORDINGS_BUCKET: !Ref MyS3Bucket
+      Events:
+        UploadAssetAPI:
+          Type: HttpApi
+          Properties:
+            Path: /download-url
             Method: GET
             ApiId: !Ref MyApi
 
