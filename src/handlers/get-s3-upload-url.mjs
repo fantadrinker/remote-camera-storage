@@ -8,7 +8,7 @@ export const putObjectUrl = async (event) => {
   const {
     sub,
   } = event.queryStringParameters
-  const randomID = parseInt(Math.random() * 10000000)
+  const randomID = Math.random() * 10000000
   const Key = `${sub}/${randomID}.webm`
 
   // Get signed URL from S3
