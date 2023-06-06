@@ -44,6 +44,117 @@ Resources:
           - "http://localhost:5173"
           - "https://fantadrinker.github.io"
 
+  StreamsApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+      Name: StreamsApi
+  Deployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - StreamConnectRoute
+      - StreamSendRoute
+      - StreamDisconnectRoute
+    Properties:
+      ApiId:
+        Ref: StreamsApi
+  
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: Prod
+      Description: Prod Stage
+      DeploymentId: !Ref Deployment
+      ApiId: !Ref StreamsApi
+  
+  StreamConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref StreamsApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target:
+        Fn::Join:
+          - /
+          - - integrations
+            - Ref: StreamConnectInteg
+  StreamConnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref StreamsApi
+      Description: Connect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnConnectFunction.Arn}/invocations
+  StreamConnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - StreamsApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OnConnectFunction
+      Principal: apigateway.amazonaws.com
+
+  StreamDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref StreamsApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: DisconnectRoute
+      Target:
+        Fn::Join:
+          - /
+          - - integrations
+            - Ref: StreamDisconnectInteg
+  StreamDisconnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref StreamsApi
+      Description: Disconnect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnDisconnectFunction.Arn}/invocations
+  StreamDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - StreamsApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OnDisconnectFunction
+      Principal: apigateway.amazonaws.com
+
+  StreamSendRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref StreamsApi
+      RouteKey: sendmessage
+      AuthorizationType: NONE
+      OperationName: SendMessage
+      Target:
+        Fn::Join:
+          - /
+          - - integrations
+            - Ref: StreamSendInteg
+  StreamSendInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref StreamsApi
+      Description: Send Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnSendMessageFunction.Arn}/invocations
+  StreamSendPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - StreamsApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OnSendMessageFunction
+      Principal: apigateway.amazonaws.com
+
   # this is a lambda function that retrieves s3 upload url
   getAccessUrlFunction:
     Type: AWS::Serverless::Function
@@ -117,6 +228,66 @@ Resources:
             Path: /download-url
             Method: GET
             ApiId: !Ref MyApi
+
+  OnConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/WSHandlers/connect-stream.connectStream
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StreamTable
+      Environment:
+        Variables:
+          STREAM_TABLE: !Ref StreamTable
+  
+  OnDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/WSHandlers/disconnect-stream.disconnectStream
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StreamTable
+      Environment:
+        Variables:
+          STREAM_TABLE: !Ref StreamTable
+  
+  
+  OnSendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/WSHandlers/send-message-stream.sendMessageStream
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StreamTable
+        - Statement:
+          - Effect: Allow
+            Action:
+            - 'execute-api:ManageConnections'
+            Resource:
+            - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${StreamsApi}/*'
+      Environment:
+        Variables:
+          STREAM_TABLE: !Ref StreamTable
+
+        
+  StreamTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: pk
+        Type: String
 
   # S3 Bucket
   MyS3Bucket:

@@ -3,12 +3,39 @@
  * If it's viewer, find the broadcast, and create a 1-on-1 session
  * If it's broadcaster connecting, create a broadcast row
  */
+import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
 
-export const connectStream = async (event, context) => {
+const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION })
+
+export const connectStream = (event, context) => {
   console.log('event', event);
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: 'connect-stream' }),
-  };
+  
+  const protocol = event.headers['Sec-Websocket-Protocol'] || event.multiValueHeaders['Sec-Websocket-Protocol']
+
+  const connectionId = event.requestContext.connectionId
+
+  const command = new PutItemCommand({
+    TableName: process.env.STREAM_TABLE,
+    Item: {
+      pk: 
+      { 
+        S: `connection#${connectionId}`
+      },
+      connectionId: {
+        S: connectionId,
+      },
+      connectionType: {
+        S: protocol === 'broadcast-protocol'? 'broadcast': 'viewer'
+      }
+    }
+  })
+
+  return ddbClient.send(command).then((response) => {
+    console.log("connection success!", response)
+    return { statusCode: 200, body: 'Connected' }
+  }).catch((error) => {
+    console.log("connection failed.", error)
+    return { statusCode: 500, body: 'Failed to connect' }
+  })
 };
 
