@@ -9,7 +9,6 @@ const ddbClient = new DynamoDBClient({
 
 export const disconnectStream = async (event, context) => {
 
-  const protocol = event.headers['Sec-Websocket-Protocol'] || event.multiValueHeaders['Sec-Websocket-Protocol']
   const connectionId = event.requestContext.connectionId
 
   const command = new DeleteItemCommand({
@@ -20,10 +19,9 @@ export const disconnectStream = async (event, context) => {
       }
     }
   })
-  ddbClient.send(command).then((response) => {
-    console.log("disconnect successfully", response)
+  return ddbClient.send(command).then((response) => {
+    return { statusCode: 200, body: "Disconnected." }
   }).catch((error) => {
     console.log("error cleaning up", error)
   })
-  return;
 } 

@@ -26,8 +26,7 @@ export const connectStream = (event, context) => {
     }
   })
 
-  return ddbClient.send(command).then((response) => {
-    console.log("connection success!", response)
+  return ddbClient.send(command).then(() => {
     return { statusCode: 200, body: 'Connected' }
   }).catch((error) => {
     console.log("connection failed.", error)
