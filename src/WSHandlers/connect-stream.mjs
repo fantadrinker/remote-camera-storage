@@ -10,7 +10,6 @@ const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION })
 export const connectStream = (event, context) => {
   console.log('event', event);
   
-  const protocol = event.headers['Sec-Websocket-Protocol'] || event.multiValueHeaders['Sec-Websocket-Protocol']
 
   const connectionId = event.requestContext.connectionId
 
@@ -24,9 +23,6 @@ export const connectStream = (event, context) => {
       connectionId: {
         S: connectionId,
       },
-      connectionType: {
-        S: protocol === 'broadcast-protocol'? 'broadcast': 'viewer'
-      }
     }
   })
 

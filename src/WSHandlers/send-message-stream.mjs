@@ -8,7 +8,7 @@ import { DynamoDBClient, GetItemCommand, PutItemCommand, UpdateItemCommand } fro
 
 const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION })
 
-const handleViewerJoin = (broadcastId) => {
+const handleViewerJoin = (connectionId, broadcastId) => {
   const getBroadcastCommand = new GetItemCommand({
     TableName: process.env.STREAM_TABLE,
     Key: {
@@ -27,14 +27,20 @@ const handleViewerJoin = (broadcastId) => {
     }
     const updateCommand = new UpdateItemCommand({
       TableName: process.env.STREAM_TABLE,
-      Key: connKeyCond,
+      Key: {
+        pk: {
+          S: `connection#${connectionId}`
+        }
+      },
       ExpressionAttributeNames: {
-        "#B": "broadcastConnectionId"
+        "#B": "broadcastConnectionId",
+        "#C": "connectionType"
       },
       ExpressionAttributeValues: {
-        ":b": brConnId
+        ":b": { S: brConnId },
+        ":c": { S: "viewer" }
       },
-      UpdateExpression: "SET #B = :b"
+      UpdateExpression: "SET #B = :b, #C = :c"
     })
 
     return ddbClient.send(updateCommand)
@@ -45,7 +51,7 @@ const handleBroadcastInit = (connId, broadcastId) => {
   // create an item in table, 
   // pk: "broadcast#"+broadcastId, connectionId: connId
   const createBrCommand = new PutItemCommand({
-    TableName: process.env.TABLE_NAME,
+    TableName: process.env.STREAM_TABLE,
     Item: {
       pk: {
         S: `broadcast#${broadcastId}`,
@@ -55,8 +61,24 @@ const handleBroadcastInit = (connId, broadcastId) => {
       }
     }
   })
-
-  return ddbClient.send(createBrCommand);
+  const updateConnCommand = new UpdateItemCommand({
+    TableName: process.env.STREAM_TABLE,
+    Key: {
+      pk: {
+        S: `connection#${connId}`
+      }
+    },
+    ExpressionAttributeNames: {
+      "#C": "connectionType"
+    },
+    ExpressionAttributeValues: {
+      ":c": { S: "broadcast" }
+    },
+    UpdateExpression: "SET #C = :c"
+  })
+  return ddbClient.send(createBrCommand).then(() => {
+    return ddbClient.send(updateConnCommand);
+  })
 }
 
 export const sendMessageStream = (event, context) => {
@@ -66,8 +88,6 @@ export const sendMessageStream = (event, context) => {
     endpoint: event.requestContext.domainName + "/" + event.requestContext.stage
   });
   
-  manApi.post
-
   const connectionId = event.requestContext.connectionId
 
   const connKeyCond = {
@@ -85,32 +105,52 @@ export const sendMessageStream = (event, context) => {
   })
 
   return ddbClient.send(command).then(output => {
-    const connType = output.Item.connectionType.S
-    if (connType === 'viewer') {
-      if (messageType === 'viewer_join') {
-        return handleViewerJoin(postData.broadcastId)
-      } else if (messageType === 'viewer_message') {
-        return manApi.postToConnection({
-          ConnectionId: output.Item.broadcastConnectionId.S,
-          Data: postData.data
-        })
-      }
-    } else { // broadcast
+    const item = output.Item
+    if (!item) {
+      throw Error('No connection found')
+    }
+    const connType = item.connectionType
+    if (!connType) {
       if (messageType === 'broadcast_init') {
         return handleBroadcastInit(connectionId, postData.broadcastId)
-      } else if (messageType === 'broadcast_message') {
-        return manApi.postToConnection({
-          ConnectionId: postData.viewerId,
-          Data: postData.data
-        })
       }
+      else if (messageType === 'viewer_join') {
+        return handleViewerJoin(connectionId, postData.broadcastId)
+      }
+      throw Error('I dont know what to do with this')
+    } else if (connType.S === 'viewer') {
+      const brConnId = item.broadcastConnectionId
+      if (!brConnId) {
+        throw Error('Trying to relay message before connection setup')
+      }
+      console.log('sending message to broadcast', brConnId)
+      return manApi.postToConnection({
+        ConnectionId: brConnId.S,
+        Data: JSON.stringify({
+          payload: postData.data,
+          message_type: 'viewer_message'
+        })
+      }).promise()
+    } else { // broadcast
+      console.log('sending message to viewer', postData.viewerId)
+      return manApi.postToConnection({
+        ConnectionId: postData.viewerId,
+        Data: JSON.stringify({
+          payload: postData.data,
+          message_type: 'broadcast_message',
+        })
+      }).promise()
     }
-    throw Error('I dont know what to do with this')
   }).then(() => {
-    manApi.postToConnection({
+    console.log('success')
+    return manApi.postToConnection({
       ConnectionId: connectionId,
-      Data: 'success',
-    })
+      Data: JSON.stringify( messageType === 'viewer_join'? {
+        message_type: 'session_created',
+        payload: connectionId,
+      }: { success: true }),
+    }).promise()
+  }).then(() => {
     return {
       statusCode: 200,
       body: 'success'
