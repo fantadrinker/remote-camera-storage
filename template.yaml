@@ -67,7 +67,15 @@ Resources:
       Description: Prod Stage
       DeploymentId: !Ref Deployment
       ApiId: !Ref StreamsApi
-  
+
+  TestStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: Test
+      Description: Test Stage
+      DeploymentId: !Ref Deployment
+      ApiId: !Ref StreamsApi
+
   StreamConnectRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
