@@ -1,13 +1,8 @@
-// Import getAllItemsHandler function from get-all-items.mjs 
-import { getAllItemsHandler } from '../../../src/handlers/get-all-items.mjs';
-// Import dynamodb from aws-sdk 
-import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { getObjectUrl } from '../../../src/handlers/get-s3-download-url.mjs';
 import { mockClient } from "aws-sdk-client-mock";
- 
-// This includes all tests for getAllItemsHandler() 
-describe('Test getAllItemsHandler', () => { 
-    const ddbMock = mockClient(DynamoDBDocumentClient);
- 
+
+describe('Test getObjectUrl', () => { 
+  const s3Mock = mockClient(S3Client);
     beforeEach(() => {
         ddbMock.reset();
       });
