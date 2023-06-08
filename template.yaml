@@ -50,32 +50,7 @@ Resources:
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: "$request.body.action"
       Name: StreamsApi
-  Deployment:
-    Type: AWS::ApiGatewayV2::Deployment
-    DependsOn:
-      - StreamConnectRoute
-      - StreamSendRoute
-      - StreamDisconnectRoute
-    Properties:
-      ApiId:
-        Ref: StreamsApi
   
-  Stage:
-    Type: AWS::ApiGatewayV2::Stage
-    Properties:
-      StageName: Prod
-      Description: Prod Stage
-      DeploymentId: !Ref Deployment
-      ApiId: !Ref StreamsApi
-
-  TestStage:
-    Type: AWS::ApiGatewayV2::Stage
-    Properties:
-      StageName: Test
-      Description: Test Stage
-      DeploymentId: !Ref Deployment
-      ApiId: !Ref StreamsApi
-
   StreamConnectRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -133,35 +108,187 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref OnDisconnectFunction
       Principal: apigateway.amazonaws.com
-
-  StreamSendRoute:
+  
+  StreamDefaultRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref StreamsApi
-      RouteKey: sendmessage
+      RouteKey: $default
       AuthorizationType: NONE
-      OperationName: SendMessage
+      OperationName: DefaultRoute
       Target:
         Fn::Join:
           - /
           - - integrations
-            - Ref: StreamSendInteg
-  StreamSendInteg:
+            - Ref: StreamDefaultInteg
+  
+  StreamDefaultInteg:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
       ApiId: !Ref StreamsApi
-      Description: Send Integration
+      Description: Default Integration
       IntegrationType: AWS_PROXY
       IntegrationUri:
-        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnSendMessageFunction.Arn}/invocations
-  StreamSendPermission:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DefaultFunction.Arn}/invocations
+  
+  StreamDefaultPermission:
     Type: AWS::Lambda::Permission
     DependsOn:
       - StreamsApi
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref OnSendMessageFunction
+      FunctionName: !Ref DefaultFunction
       Principal: apigateway.amazonaws.com
+
+
+  StreamViewerSendRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref StreamsApi
+      RouteKey: viewersend
+      AuthorizationType: NONE
+      OperationName: ViewerSendMessage
+      Target:
+        Fn::Join:
+          - /
+          - - integrations
+            - Ref: StreamViewerSendInteg
+  StreamViewerSendInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref StreamsApi
+      Description: Viewer Send Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnViewerSendMessageFunction.Arn}/invocations
+  StreamViewerSendPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - StreamsApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OnViewerSendMessageFunction
+      Principal: apigateway.amazonaws.com
+
+  StreamBroadcastSendRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref StreamsApi
+      RouteKey: broadcastsend
+      AuthorizationType: NONE
+      OperationName: BroadcastSendMessage
+      Target:
+        Fn::Join:
+          - /
+          - - integrations
+            - Ref: StreamBroadcastSendInteg
+  StreamBroadcastSendInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref StreamsApi
+      Description: Broadcast Send Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnBroadcastSendMessageFunction.Arn}/invocations
+  StreamBroadcastSendPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - StreamsApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OnBroadcastSendMessageFunction
+      Principal: apigateway.amazonaws.com
+
+  StreamBroadcastInitRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref StreamsApi
+      RouteKey: broadcastinit
+      AuthorizationType: NONE
+      OperationName: BroadcastInit
+      Target:
+        Fn::Join:
+          - /
+          - - integrations
+            - Ref: StreamBroadcastInitInteg
+  StreamBroadcastInitInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref StreamsApi
+      Description: Broadcast Init Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnBroadcastInitFunction.Arn}/invocations
+  StreamBroadcastInitPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - StreamsApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OnBroadcastInitFunction 
+      Principal: apigateway.amazonaws.com
+
+  StreamViewerInitRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref StreamsApi
+      RouteKey: viewerinit
+      AuthorizationType: NONE
+      OperationName: ViewerInit
+      Target:
+        Fn::Join:
+          - /
+          - - integrations
+            - Ref: StreamViewerInitInteg
+  StreamViewerInitInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref StreamsApi
+      Description: Viewer Init Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${OnViewerInitFunction.Arn}/invocations
+  StreamViewerInitPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - StreamsApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref OnViewerInitFunction 
+      Principal: apigateway.amazonaws.com
+  
+  # if need to create a new deployment or update existing
+  # rename this to get a new one
+  Deployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - StreamConnectRoute
+      - StreamDisconnectRoute
+      - StreamDefaultRoute
+      - StreamViewerInitRoute
+      - StreamBroadcastInitRoute
+      - StreamViewerSendRoute
+      - StreamBroadcastSendRoute
+    Properties:
+      ApiId:
+        Ref: StreamsApi
+      StageName: Test
+  
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: Prod
+      Description: Prod Stage
+      DeploymentId: !Ref Deployment
+      ApiId: !Ref StreamsApi
+
+  TestStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: Test
+      Description: Test Stage
+      DeploymentId: !Ref Deployment
+      ApiId: !Ref StreamsApi
 
 
   # this is a lambda function that retrieves s3 upload url
@@ -268,11 +395,20 @@ Resources:
         Variables:
           STREAM_TABLE: !Ref StreamTable
   
-  
-  OnSendMessageFunction:
+  DefaultFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/WSHandlers/send-message-stream.sendMessageStream
+      Handler: src/WSHandlers/default-handler.onMessage
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+  
+  
+  OnBroadcastSendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/WSHandlers/broadcast-send-message.sendMessage
       Runtime: nodejs18.x
       Architectures:
         - x86_64
@@ -290,7 +426,68 @@ Resources:
         Variables:
           STREAM_TABLE: !Ref StreamTable
 
+  OnViewerSendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/WSHandlers/viewer-send-message.sendMessage
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StreamTable
+        - Statement:
+          - Effect: Allow
+            Action:
+            - 'execute-api:ManageConnections'
+            Resource:
+            - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${StreamsApi}/*'
+      Environment:
+        Variables:
+          STREAM_TABLE: !Ref StreamTable
         
+  OnBroadcastInitFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/WSHandlers/broadcast-init.initBroadcast
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StreamTable
+        - Statement:
+          - Effect: Allow
+            Action:
+            - 'execute-api:ManageConnections'
+            Resource:
+            - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${StreamsApi}/*'
+      Environment:
+        Variables:
+          STREAM_TABLE: !Ref StreamTable
+            
+  OnViewerInitFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/WSHandlers/viewer-init.initViewer
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StreamTable
+        - Statement:
+          - Effect: Allow
+            Action:
+            - 'execute-api:ManageConnections'
+            Resource:
+            - !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${StreamsApi}/*'
+      Environment:
+        Variables:
+          STREAM_TABLE: !Ref StreamTable
   StreamTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
@@ -318,3 +515,7 @@ Outputs:
   WebEndpoint:
     Description: "API Gateway endpoint URL for Prod stage"
     Value: !Sub "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/access-url"
+
+  WebSocketURI:
+    Description: "The WSS Protocol URI to connect to"
+    Value: !Join [ '', [ 'wss://', !Ref StreamsApi, '.execute-api.',!Ref 'AWS::Region','.amazonaws.com/',!Ref 'TestStage'] ]
